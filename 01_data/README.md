@@ -1,6 +1,6 @@
 # 01_data
 
-This is where we store all the data as well as do all the preprocessing
+This is where we store all the data as well as do all the preprocessing.
 
 ## Downloading data from dropbox
 
@@ -10,7 +10,8 @@ For each dataset you want to begin working with, perform the following commands 
 * wget -O data.zip \<dropbox link\>
 * unzip data.zip
 
-Datasets: and associated links:
+#### Dataset names and associated dropbox links:
+
 * dataset name: 008
   * dropbox link: https://www.dropbox.com/sh/hx73hvnbdlukzt9/AADkmgK9f2JwYgxnrOTHwaX0a?dl=0
 * dataset name: 010

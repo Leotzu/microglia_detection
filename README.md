@@ -7,4 +7,9 @@
 **Folder structure:**
 
 ```.
+├── 01_data
+├── 02_train
+│   └── setup01
+│       └── train.py
+├── 03_view
 └── create_tree.py```
