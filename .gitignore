@@ -1,0 +1,6 @@
+log
+snapshots
+src
+*check*
+*.tif
+*.zarr
