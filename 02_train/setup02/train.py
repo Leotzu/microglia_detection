@@ -6,21 +6,16 @@ import math
 import torch
 from funlib.learn.torch.models import UNet, ConvPass
 
-# =======================================
-# Initial setup:
-# =======================================
-
 # Change this to your target zarr.zarr location (i.e. the container your data is stored in)
 data_dir = '008/trainingset_01'
 
-# This is where the INPUT raw and segmented images are stored
-# (as dictated by 01_data/create_zarr.py)
+# This is where the INPUT raw and segmented images are stored (via create_zarr.py)
 zarr_dir = f'../../01_data/{data_dir}/zarr.zarr'
-# This is where the OUTPUT predictions will be stored after 
-#we send in the entire raw image as our first test of the model
+# This is where the OUTPUT predictions will be stored after training
+# TODO: perhaps this should only be used as output for some test.py, not train.py...
 output_zarr_dir = f'results/{data_dir}/prediction.zarr'
 
-# helper function to display images
+# helper function to show image(s)
 def imshow(raw, segmentation=None, prediction=None):
 	rows = 1
 	if segmentation is not None:
@@ -55,53 +50,74 @@ imshow(zarr.open(zarr_dir)['raw'][:])
 imshow(zarr.open(zarr_dir)['seg'][:])
 
 
-# =======================================
-# Now let's build the gunpowder pipeline:
-# =======================================
 
-# A GP pipeline is a concatination of a bunch of "nodes" that primarily contain data, data processing commands, and training parameters. 
-# You therefore define your nodes, concatinate them all together in the pipeline, "build" the pipeline (which will train if you have a training node in the pipeline), then request information from the built pipeline (like predictions, for example).
+# ===============================================
+# Now onto the actual gunpowder pipeline building
+# ===============================================
 
-# first we declare arrays to use in the pipeline
+# declare arrays to use in the pipeline
 raw = gp.ArrayKey('Raw')
-seg = gp.ArrayKey('Seg')
+seg = gp.ArrayKey('Seg') # this is also declared later, so deleteme or the other.
 
-# Create a data source node that contains the zarr file that has our images stored inside.
+
+'''
+# Create the "pipeline", consisting only of a data source
+'''
 source = gp.ZarrSource(
-    zarr_dir, # the zarr container
-    {
-        raw: 'raw', # which dataset to associate to the array key
-        seg: 'seg'
-    },
-    {
-        raw: gp.ArraySpec(interpolatable=True),
-       seg: gp.ArraySpec(interpolatable=False)
-    })
-    
-# ==============================================================
-# ==============================================================
-# ==============================================================
-# THIS IS MY EDITING BOOKMARK
-# ==============================================================
-# ==============================================================
-# ==============================================================
+	zarr_dir, # the zarr container
+	{raw: 'raw'}, # which dataset to associate to the array key
+	{raw: gp.ArraySpec(interpolatable=True)} # meta-information
+)
+'''
+pipeline = source
 
-
+# Forumalte a request for "raw" 
+# 	-> i.e. perform a "BatchRequest" for raw date (in this case, starting at (0,0) with a size of (64,128)
+# 	-> this request acts like a dictionary, mapping each array key to the ROI (region of interest)
+'''
 request = gp.BatchRequest()
 request[raw] = gp.Roi((0, 0), (64, 128))
-request[seg] = gp.Roi((0, 0), (64, 128))
 '''
+# Now build the pipeline... *************** Important
+with gp.build(pipeline):
+	#... and request the batch ****************** Important
+	batch = pipeline.request_batch(request)
+
+# show the content of the batch
+print(f"batch returned: {batch}")
+#imshow(batch[raw].data)
+
+# You can also see what the request looks like by printing it
+print(request)
+
+# ===============================================
+# *** RANDOM SAMPLES ***
+# 	-> in training pipelines, it's often useful to randomly select a location to crop data from. GP provides a node "RandomLocation" that does this automatically
 
 # add a RandomLocation to the pipeline to randomly select a sample
 '''
 random_location = gp.RandomLocation()
 '''
+pipeline = source + random_location
+
+# Printing the pipeline will show that it's using a RandomLocation
+#print(pipeline)
+
+# Now we can issue the same type of request as before, except we're now using random_location:
+with gp.build(pipeline):
+	batch = pipeline.request_batch(request)
+#imshow(batch[raw].data)
 
 # ===============================================
 # *** Simple Augmentation ***
 '''
 simple_augment = gp.SimpleAugment()
 '''
+pipeline = source + random_location + simple_augment
+
+with gp.build(pipeline):
+	batch = pipeline.request_batch(request)
+#imshow(batch[raw].data)
 
 # ===============================================
 # *** ElasticAugment ***
@@ -113,6 +129,15 @@ elastic_augment = gp.ElasticAugment(
 	rotation_interval = (0, math.pi/2)
 	)
 '''
+# redefine the pipeline with the added augmentation
+pipeline = source + random_location + simple_augment + elastic_augment
+
+# build the pipeline and request the batch (as we've done twice now)
+with gp.build(pipeline):
+	batch = pipeline.request_batch(request)
+
+# finally print the augmented batch
+#imshow(batch[raw].data)
 
 # ===============================================
 # *** INTENSITY AUGMENTATION ***
@@ -125,10 +150,21 @@ intensity_augment = gp.IntensityAugment(
 	scale_max = 1.2,
 	shift_min = -0.2,
 	shift_max = 0.2)
-
 # create some noise now
 noise_augment = gp.NoiseAugment(raw)
 '''
+# Now again we redefine the pipeline, buil it, then request the batch:
+pipeline = (
+	source + 
+	normalize + 
+	random_location +
+	simple_augment +
+	elastic_augment +
+	intensity_augment +
+	noise_augment)
+with gp.build(pipeline):
+	batch = pipeline.request_batch(request)
+#imshow(batch[raw].data)
 
 # ===============================================
 # *** STACK node ***
@@ -144,10 +180,95 @@ pipeline = (
 	intensity_augment +
 	noise_augment +
 	stack)
+'''
+with gp.build(pipeline):
+	batch = pipeline.request_batch(request)
+#imshow(batch[raw].data)
+
+# ===============================================
+# *** Requesting Multiple Arrays ***
+
+# Call imshow() to display the raw image and the segmentation that we're working with
+'''
+'''
+imshow(
+    zarr.open(zarr_dir)['raw'][:],
+    zarr.open(zarr_dir)['seg'][:]
+    )
+'''
+# modify our source node and our request so we can request raw gata and segmentation at the same time:
+
+seg = gp.ArrayKey('Seg')
+source = gp.ZarrSource(
+    zarr_dir,
+    {
+        raw: 'raw',
+        seg: 'seg'
+    },
+    {
+        raw: gp.ArraySpec(interpolatable=True),
+       seg: gp.ArraySpec(interpolatable=False)
+    })
+
+request[seg] = gp.Roi((0, 0), (64, 128))
+
+pipeline = (
+    source +
+    normalize +
+    random_location +
+    simple_augment +
+    elastic_augment +
+    intensity_augment +
+    noise_augment +
+    stack)
     
 with gp.build(pipeline):
     batch = pipeline.request_batch(request)
     
+imshow(batch[raw].data, batch[seg].data)
+
+# We can even offset the seg ROI from the raw ROI by "requesting an offset ROI for the segmentation":
+#   -> Note: this means that GP requests can contain ROIs with different offsets and sizes.
+odd_request = request.copy()
+odd_request[seg] = gp.Roi((20,20),(64,128))
+
+with gp.build(pipeline):
+    batch = pipeline.request_batch(odd_request)
+
+#imshow(batch[raw].data, batch[seg].data)
+
+# ===============================================
+# *** Multiple Sources (i.e. Zarr containers) ***
+#   -> building from the previous example, GP allows you to have multiple sources for different arrays and merge them together into one:
+
+# source for raw array
+source_raw = gp.ZarrSource(
+    zarr_dir,
+    {raw: 'raw'},
+    {raw: gp.ArraySpec(interpolatable=True)}
+)
+# source for segmentation array
+source_seg = gp.ZarrSource(
+    zarr_dir,
+    {seg: 'seg'},
+    {seg: gp.ArraySpec(interpolatable=False)}
+)
+# now we can merge these two sources to assemble the pipeline:
+combined_source = (source_raw, source_seg) + gp.MergeProvider()
+
+pipeline = (
+    combined_source +
+    normalize +
+    random_location +
+    simple_augment +
+    elastic_augment +
+    intensity_augment +
+    noise_augment +
+    stack)
+
+with gp.build(pipeline):
+    batch = pipeline.request_batch(request)
+
 imshow(batch[raw].data, batch[seg].data)
 
 
@@ -158,10 +279,15 @@ imshow(batch[raw].data, batch[seg].data)
 #   -> Now, using the same pipeline structure, we'll show how we can train a neural network directly using GP.
 #   -> we will train a 2D U-net on the binary segmentation using a binary cross entropy loss (the model and loss links are provided in the tutorial).
 
+# Required: 
+#   -> pip install git+https://github.com/funkelab/funlib.learn.torch
+#   -> pip install torch (<- this is pytorch)
+
 # to make sure I get the same results as the tutorial:
 torch.manual_seed(18)
 
 # Define the UNet
+#   -> def: a CNN that was developed for biomedical image segmentation.
 unet = UNet(
     in_channels=3,
     num_fmaps=4,
@@ -183,14 +309,14 @@ optimizer = torch.optim.Adam(model.parameters())
 
 # *** FEATURE ***
 #   -> The UNet training can be implemented in a GP node (in this case, "torch.Train").
-#   -> The main benefit of using this node in a GP pipeline (as opposed to taking the batches we already requested and feeding them manually into the model), is that the output of the network itself can be mapped to a GP array, which can subsequently be used in the pipeline.
+#   -> The main benefit of using this node in a GP pipeline (as opposed to taking the batches we already requested and feeding them manually into the model), is that the output of the network itself can be mapped t o a GP array, which can subsequently be used in the pipeline.
 
 # Now we will create a new array key ("prediction") to implement the training in a GP node (as described above):
 
-# create a new array key for the model's prediction output (for when we test it)
+# create a new array key for the network output
 prediction = gp.ArrayKey('PREDICTION')
 
-# create a GP train node using our model, loss, and optimizer
+# create a train node using our model, loss, and optimizer
 train = gp.torch.Train(
     model,
     loss,
@@ -198,7 +324,7 @@ train = gp.torch.Train(
     inputs = {
         'input': raw
     },
-    loss_inputs = { # *** Q: What are loss inputs?? -> A: in GP's API notes
+    loss_inputs = { # *** Q: What are loss inputs?? -> A: in API notes
         0: prediction,
         1: seg
     },
@@ -206,7 +332,7 @@ train = gp.torch.Train(
         0: prediction
     })
     
-# Now add "train" to the pipeline along with everything else
+# Now add "train" to the pipeline
 pipeline = (
     source +
     normalize +
@@ -221,11 +347,11 @@ pipeline = (
 # now add the prediction to the request
 request[prediction] = gp.Roi((0,0), (64,128))
 
-# Finally we can build the pipeline and display it like normal:
+# Finally we can build and display like normal:
 with gp.build(pipeline):
     batch = pipeline.request_batch(request)
 # include the prediction when calling imshow()
-imshow(batch[raw].data, batch[seg].data, batch[prediction].data)
+#imshow(batch[raw].data, batch[seg].data, batch[prediction].data)
 
 # To get better results, we can train the same model for a few more iterations:
 with gp.build(pipeline):
