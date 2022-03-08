@@ -6,8 +6,6 @@
 
 **Folder structure:**
 ```.
-├── 00_practice
-│   └── simple_pipeline.py
 ├── 01_data
 │   ├── 008
 │   │   ├── trainingset_01
