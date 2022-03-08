@@ -1,11 +1,13 @@
 # Converts .tif files to np.arrays then stores them in a zarr container for training
-# Images are stored in 01_data/<data_name>/trainingset_xx/zarr
+# Images are stored in 01_data/<data_name>/trainingset_xx/input.zarr
 # Once in a zarr, training can be done from 02_train/setup_xx/train.py
 
 import matplotlib.pyplot as plt
 import numpy as np
 import zarr
 from PIL import Image
+from skimage import filters
+from skimage import data
 
 # Change this to your target data folder
 data_dir = '008/trainingset_01/'
@@ -21,7 +23,7 @@ seg_data = np.array(seg_raster)
 seg_data = seg_data[np.newaxis,:].astype(np.float32) #Q: why float32??
 
 # store the images in a zarr container
-f = zarr.open(data_dir + 'zarr.zarr', 'w')
+f = zarr.open(data_dir + 'input.zarr', 'w')
 f['raw'] = raw_data
 f['raw'].attrs['resolution'] = (1, 1)
 f['seg'] = seg_data
