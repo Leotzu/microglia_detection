@@ -4,6 +4,10 @@
 
 **Description:** A deep convolutional neural network that trains on flouresence microscopy image data in order to automatically detect microglia cells. In collaberation with the Tremblay Lab at the University of Victoria.
 
+**Environment installs:**
+Packages to install (via pip or conda):
+numpy, matplotlib, Pillow, gunpowder, zarr, torch, git+https://github.com/funkelab/funlib.learn.torch
+
 **Folder structure:**
 ```.
 ├── 01_data
