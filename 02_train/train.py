@@ -44,8 +44,8 @@ def main():
         results = opts.train(opts.model, sample_zarr)
         plot.imshow(results['raw'], results['seg'], results['prediction'], file=f'train-{i}.png')
 
-    torch.save(opts.model, opts.model_path)
-    torch.save(opts.model.state_dict(), opts.weights_path)
+        torch.save(opts.model, opts.model_path)
+        torch.save(opts.model.state_dict(), opts.weights_path)
 
 if __name__ == '__main__':
     main()
