@@ -1,30 +1,62 @@
-# Converts .tif files to np.arrays then stores them in a zarr container for training
-# Images are stored in 01_data/<data_name>/trainingset_xx/input.zarr
-# Once in a zarr, training can be done from 02_train/setup_xx/train.py
+# Combine .png tiles into a zarr array for use in gunpowder
 
-import matplotlib.pyplot as plt
+import os
+import glob
 import numpy as np
 import zarr
 from PIL import Image
-from skimage import filters
-from skimage import data
 
-# Change this to your target data folder
-data_dir = '008/trainingset_01/'
+# Relevant directories
+tiles_dir = 'tiles'
+input_dir = os.path.join(tiles_dir, 'input')
+dots_dir  = os.path.join(tiles_dir, 'label_dot')
+cells_dir = os.path.join(tiles_dir, 'label_cell-body')
 
-# convert raw and groundtruth images into np.arrays
-raw_raster = Image.open(data_dir + 'raw.tif')
-seg_raster = Image.open(data_dir + 'seg.tif')
+# Output names
+opt1_zarr = 'by-image-name.zarr'
+opt2_zarr = 'all-combined.zarr'
 
-# transpose data so it's in the form: (channels, x, y)
-raw_data = np.array(raw_raster).transpose(2,0,1) 
+# Get list of images from the input directory.
+filenames = glob.glob(os.path.join(input_dir, '*.png'))
+# Remove the directory prefix from each filename.
+filenames = [os.path.split(x)[-1] for x in filenames]
 
-seg_data = np.array(seg_raster)
-seg_data = seg_data[np.newaxis,:].astype(np.float32) #Q: why float32??
+##########
+# Option 1
+#   Store data in zarr by image name
 
-# store the images in a zarr container
-f = zarr.open(data_dir + 'input.zarr', 'w')
-f['raw'] = raw_data
-f['raw'].attrs['resolution'] = (1, 1)
-f['seg'] = seg_data
-f['seg'].attrs['resolution'] = (1, 1)
+store = zarr.DirectoryStore(opt1_zarr)
+root = zarr.group(store=store)
+for f in filenames:
+    # Read each image. The raw will have an alpha channel by default - drop it.
+    # Dots and cells will only have a single channel, no need to convert.
+    raw   = np.array(Image.open(os.path.join(input_dir, f)).convert(mode='RGB')).transpose(2,0,1)
+    dots  = np.array(Image.open(os.path.join(dots_dir, f)))
+    cells = np.array(Image.open(os.path.join(cells_dir, f)))
+
+    # Combine the above datasets
+    combined_arr = np.insert(np.insert(raw, 3, dots, axis=0), 4, cells, axis=0)
+
+    # Write array to zarr, named by image name (without extension)
+    name = os.path.splitext(f)[0]
+    root.array(name, combined_arr)
+
+##########
+# Option 2
+#   Store all data in a single array
+
+store = zarr.DirectoryStore(opt2_zarr)
+data = []
+for f in filenames:
+    # Read each image. The raw will have an alpha channel by default - drop it.
+    # Dots and cells will only have a single channel, no need to convert.
+    raw   = np.array(Image.open(os.path.join(input_dir, f)).convert(mode='RGB')).transpose(2,0,1)
+    dots  = np.array(Image.open(os.path.join(dots_dir, f)))
+    cells = np.array(Image.open(os.path.join(cells_dir, f)))
+
+    # Combine the above datasets
+    combined_arr = np.insert(np.insert(raw, 3, dots, axis=0), 4, cells, axis=0)
+    data.append(combined_arr)
+
+# Write the data to zarr
+zarr.save(store, np.stack(data))
