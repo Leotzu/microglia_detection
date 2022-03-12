@@ -3,4 +3,16 @@ snapshots
 src
 *check*
 *.tif
+*.png
 *.zarr
+*.zgroup
+*.swp
+__pycache__
+
+# For now, we won't commit docker config
+Dockerfile
+docker-compose.yml
+requirements.txt
+
+# For now, we won't commit torch model files
+*.pth
