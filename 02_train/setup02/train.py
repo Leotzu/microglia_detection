@@ -230,9 +230,9 @@ class LoadZarrAction(argparse.Action):
                     zarr_dir.strip('\/')[-5:] == '.zarr':
 
                 z = zarr.open(zarr_dir)
-                #for lyr in ['raw', 'dots', 'cells']:
-                #    if lyr not in z:
-                #        raise Exception # invalid zarr
+                for lyr in ['train', 'test']:
+                    if lyr not in z:
+                        raise Exception # invalid zarr
 
                 setattr(namespace, 'data', z)
                 setattr(namespace, 'zarr', zarr_dir)
@@ -249,7 +249,10 @@ class LoadModelAction(argparse.Action):
 
     def __call__(self, parser, namespace, model_path, option_string=None):
         try:
-            model = torch.load(model_path)
+            if os.path.exists(model_path):
+                model = torch.load(model_path)
+            else:
+                model = initModel()
             setattr(namespace, 'model', model)
             setattr(namespace, 'model_path', model_path)
         except FileNotFoundError:
@@ -278,10 +281,10 @@ def parse_args():
     parser.add_argument('zarr', metavar='zarr',
         action=LoadZarrAction,
         help='Zarr directory containing input data and segmentation layers.')
-    parser.add_argument('-m', '--model', metavar='model',
+    parser.add_argument('model', metavar='model.pth', default='model.pth',
         action=LoadModelAction,
-        help='Optional: specify a .pth file to use as the initial model.')
-    parser.add_argument('-w', '--weights', metavar='weights',
+        help="Specify a .pth file to use as the initial model. If it doesn't exist, it will be initialized.")
+    parser.add_argument('-w', '--weights', metavar='pth',
         action=LoadModelWeightsAction,
         help='Optional: specify a .pth file to use as the initial model weights.')
 
@@ -290,15 +293,18 @@ def parse_args():
 def main():
     opts = parse_args()
 
-    # A model and weights were specified on command line args. Initialize
-    # the model with the edge weights.
-    if opts.model is not None and opts.weights is not None:
+    # Model weights were not specified on command line args.
+    if opts.weights is None:
+        basename, ext = os.path.splitext(opts.model_path)
+        setattr(opts, 'weights_path', f'{basename}_weights{ext}')
+
+    # Model weights file exists, initialize the model with the edge weights.
+    if os.path.exists(opts.weights_path):
+        opts.weights = torch.load(opts.weights_path)
         opts.model.load_state_dict(opts.weights)
         opts.model.eval() # docs recommend doing this when loading weights
 
-    # No model was specified on command line args, so initialize a new one.
-    elif opts.model is None:
-        opts.model = initModel()
+    print(f'Using model {opts.model_path} and weights {opts.weights_path}')
 
     # Create/load a sample zarr container for training
     sample_zarr = 'sample.zarr'
@@ -308,7 +314,8 @@ def main():
             root.array(str(lyr),np.array(0)) # create a placeholder
 
     # For each image, populate the sample zarr container and train on it
-    for image in opts.data:
+    for i, image in enumerate(opts.data['train']):
+        print(f'Training on image {i+1} of {len(opts.data["train"])}')
         if len(image) != 5:
             print("Unrecognized data format.")
             sys.exit(1)
@@ -318,6 +325,9 @@ def main():
         root['cells'] = np.array(image[4])[np.newaxis].astype(np.float32)
 
         train(opts.model, sample_zarr)
+
+    torch.save(opts.model, opts.model_path)
+    torch.save(opts.model.state_dict(), opts.weights_path)
 
 if __name__ == '__main__':
     main()
