@@ -6,6 +6,9 @@ def imshow(raw, segmentation=None, prediction=None, file=None):
     def norm(arr):
         """Normalize an array to int8 (0-255)"""
 
+        if arr.max() == 0:
+            return arr
+
         arr = arr - arr.min()
         return arr * 255 / arr.max()
 
