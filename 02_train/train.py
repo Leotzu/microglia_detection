@@ -42,8 +42,6 @@ def main():
     if opts.type in ['train','both']:
         # For each image, populate the sample zarr container and train on it
         for i, sample in enumerate(opts.data['train']):
-            if i < 64:
-                continue
             print(f"Training on sample {i+1} of {len(opts.data['train'])}",
                     f"({opts.data['train'].attrs['name'][i]})")
             updateZarr(sample, root)
