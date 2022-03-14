@@ -42,3 +42,6 @@ def imshow(raw, segmentation=None, prediction=None, file=None):
         plt.show()
     else:
         plt.savefig(file)
+
+    # Explicitly close the figure to free the memory
+    plt.close(fig)
