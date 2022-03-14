@@ -136,6 +136,9 @@ def test(model, zarrfile):
     # All we want is one output image of our entire test image
     stack = gp.Stack(1)
 
+    # Define the dimensions of your batch squares (described below)
+    square_len = 200
+
     # request matching the model input and output sizes:
     scan_request = gp.BatchRequest()
     scan_request[raw] = gp.Roi((0,0), (square_len,square_len))
