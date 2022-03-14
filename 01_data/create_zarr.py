@@ -17,6 +17,17 @@ cells_dir = os.path.join(tiles_dir, 'label_cell-body')
 # Output names
 output_zarr = 'train-test-split.zarr'
 
+# Helper functions
+def open_image(filepath, mode='L'):
+    """Open an image and return it as a ndarray."""
+
+    return np.array(Image.open(filepath).convert(mode))
+
+def transform(arr):
+    """Convert default image array into a mapping of white = 0, not white = 1."""
+
+    return (np.invert(arr) / np.invert(arr).max()).astype(np.int8)
+
 # Get list of images from the input directory.
 filenames = sorted(glob.glob(os.path.join(input_dir, '*.png')))
 # Remove the directory prefix from each filename.
@@ -28,9 +39,9 @@ data = []
 for f in filenames:
     # Read each image. The raw will have an alpha channel by default - drop it.
     # Dots and cells will only have a single channel, no need to convert.
-    raw   = np.array(Image.open(os.path.join(input_dir, f)).convert(mode='RGB')).transpose(2,0,1)
-    dots  = np.array(Image.open(os.path.join(dots_dir, f)))
-    cells = np.array(Image.open(os.path.join(cells_dir, f)))
+    raw   = open_image(os.path.join(input_dir, f), mode='RGB').transpose(2,0,1)
+    dots  = transform(open_image(os.path.join(dots_dir, f)))
+    cells = transform(open_image(os.path.join(cells_dir, f)))
 
     # Combine the above datasets
     combined_arr = np.insert(np.insert(raw, 3, dots, axis=0), 4, cells, axis=0)
