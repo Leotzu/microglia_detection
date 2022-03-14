@@ -12,31 +12,35 @@ def imshow(raw, segmentation=None, prediction=None, file=None):
         arr = arr - arr.min()
         return arr * 255 / arr.max()
 
-    rows = sum([1 for x in (raw, segmentation, prediction) if x is not None])
-    cols = raw.shape[0] if len(raw.shape) > 3 else 1
+    def apply_threshold(arr, threshold):
+        newArr = arr.copy()
+        newArr[newArr < threshold] = 0
+        return newArr
+
+    # Produce one row of plots for each of raw and segmentation, and two
+    # plots for prediction: with and without a threshold applied
+    rows = len([x for x in (raw, segmentation, prediction, prediction) if x is not None])
+    cols = raw.shape[0] if raw.ndim > 3 else 1
     fig, axes = plt.subplots(rows, cols, figsize=(10, 4), sharex=True, sharey=True, squeeze=False)
 
-    if len(raw.shape) == 3:
-        axes[0][0].imshow(raw.transpose(1, 2, 0))
-    else:
-        for i, im in enumerate(raw):
-            axes[0][i].imshow(im.transpose(1,2,0))
+    for row, arr in enumerate([raw,
+                               segmentation,
+                               prediction,
+                               apply_threshold(prediction, 0.7)]):
+        if arr is None:
+            continue
 
-    row = 1
-    if segmentation is not None:
-        if len(segmentation.shape) == 3:
-            axes[row][0].imshow(norm(segmentation[0]))
-        else:
-            for i, seg in enumerate(segmentation):
-                axes[row][i].imshow(norm(seg[0]))
-        row += 1
+        # Ensure all array shapes are in the form (plot, channel, X, Y)
+        if arr.ndim == 3:
+            arr = arr[np.newaxis]
 
-    if prediction is not None:
-        if len(prediction.shape) == 3:
-            axes[row][0].imshow(norm(prediction[0]))
-        else:
-            for i, seg in enumerate(prediction):
-                axes[row][i].imshow(norm(seg[0]))
+        for i, plot in enumerate(arr):
+            if plot.ndim == 3: # has RGB channels
+                plot = plot.transpose(1,2,0) # must be raw array; don't normalize
+            else:
+                plot = norm(plot) # must be seg/pred; ensure max = 1, min = 0
+
+            axes[row][i].imshow(plot)
 
     if file is None:
         plt.show()
