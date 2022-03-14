@@ -7,6 +7,15 @@ import torch
 import utils.argparse as argparse
 import utils.plot as plot
 
+def updateZarr(sample, zarr_root):
+    if len(sample) != 5:
+        print("Unrecognized data format.")
+        sys.exit(1)
+
+    zarr_root['raw']   = np.array(sample[:3])
+    zarr_root['dots']  = np.array(sample[3])[np.newaxis].astype(np.float32)
+    zarr_root['cells'] = np.array(sample[4])[np.newaxis].astype(np.float32)
+
 def main():
     opts = argparse.parse_args()
 
@@ -30,22 +39,29 @@ def main():
         if lyr not in root:
             root.array(str(lyr),np.array(0)) # create a placeholder
 
-    # For each image, populate the sample zarr container and train on it
-    for i, image in enumerate(opts.data['train']):
-        print(f'Training on image {i+1} of {len(opts.data["train"])}')
-        if len(image) != 5:
-            print("Unrecognized data format.")
-            sys.exit(1)
+    if opts.type in ['train','both']:
+        # For each image, populate the sample zarr container and train on it
+        for i, sample in enumerate(opts.data['train']):
+            if i < 64:
+                continue
+            print(f"Training on sample {i+1} of {len(opts.data['train'])}",
+                    f"({opts.data['train'].attrs['name'][i]})")
+            updateZarr(sample, root)
+            results = opts.train(opts.model, sample_zarr)
+            plot.imshow(results['raw'], results['seg'], results['prediction'],
+                file=f"train-{opts.data['train'].attrs['name'][i]}")
 
-        root['raw']   = np.array(image[:3])
-        root['dots']  = np.array(image[3])[np.newaxis].astype(np.float32)
-        root['cells'] = np.array(image[4])[np.newaxis].astype(np.float32)
+            torch.save(opts.model, opts.model_path)
+            torch.save(opts.model.state_dict(), opts.weights_path)
 
-        results = opts.train(opts.model, sample_zarr)
-        plot.imshow(results['raw'], results['seg'], results['prediction'], file=f'train-{i}.png')
-
-        torch.save(opts.model, opts.model_path)
-        torch.save(opts.model.state_dict(), opts.weights_path)
+    if opts.type in ['test','both']:
+        for i, sample in enumerate(opts.data['test']):
+            print(f"Testing on sample {i+1} of {len(opts.data['test'])}",
+                    f"({opts.data['train'].attrs['name'][i]})")
+            updateZarr(sample, root)
+            results = opts.test(opts.model, sample_zarr)
+            plot.imshow(results['raw'], results['seg'], results['prediction'],
+                file=f"test-{opts.data['test'].attrs['name'][i]}")
 
 if __name__ == '__main__':
     main()

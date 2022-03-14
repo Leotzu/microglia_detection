@@ -93,5 +93,10 @@ def parse_args():
     parser.add_argument('-w', '--weights', metavar='pth',
         action=LoadModelWeightsAction,
         help='Optional: specify a .pth file to use as the initial model weights.')
+    parser.add_argument('-t', metavar='type', choices=['test','train','both'],
+        default='train', dest='type',
+        help='Optional: specify whether to train or test the model. ' +
+            'Possible values: test, train, or both. Default is train. ' +
+            'Unless both, only the specified routine will be executed.')
 
     return parser.parse_args()
