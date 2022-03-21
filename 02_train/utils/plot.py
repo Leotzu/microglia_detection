@@ -1,7 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-import utils.transformations as transform
 import utils.metrics as metrics
 
 # helper function to display images
@@ -22,8 +21,6 @@ def imshow(data, file=None):
         for i, plot in enumerate(arr):
             if plot.ndim == 3: # has RGB channels
                 plot = plot.transpose(1,2,0) # must be raw array; don't normalize
-            else:
-                plot = transform.normalize(plot) # must be seg/pred; ensure max = 1, min = 0
 
             axes[row][i].imshow(plot)
 

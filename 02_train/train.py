@@ -21,7 +21,8 @@ def updateZarr(sample, zarr_root):
 def runModel(sample, root, model, filename):
     updateZarr(sample, root)
     results = model()
-    results['masked'] = transform.apply_pixel_mask(results['pred'])
+    results['masked'] = transform.normalize(transform.apply_pixel_mask(results['pred']))
+    results['pred'] = transform.normalize(results['pred'])
     plot.imshow(results, file=filename)
 
     return results
