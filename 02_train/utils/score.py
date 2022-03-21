@@ -90,3 +90,28 @@ def compute_centroids(seg, pred, pixel_threshold=0.7, size_threshold=1):
         dists.remove(np.asarray(dists).max())
         
     return dists
+
+def naive_count(seg, pred):
+    """Scoring method: Return the difference between the number of expected
+    clusters and the number of predicted clusters. A positive value indicates
+    there were fewer predicted clusters than expected."""
+
+    return count_objects(seg) - count_objects(pred)
+
+def naive_difference(seg, pred):
+    """Scoring method: Return the pixel-wise difference between the expected
+    image and the predicted image."""
+
+    return count_xor_difference(seg, pred)
+
+def better_count(data):
+    return None
+
+def better_difference(data):
+    return None
+
+def score(data):
+    return {'naive_count':       naive_count(data['seg'], data['masked']),
+            'naive_difference':  naive_difference(data['seg'], data['masked']),
+            'better_count':      better_count(data),
+            'better_difference': better_difference(data)}

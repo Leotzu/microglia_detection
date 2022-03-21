@@ -1,34 +1,19 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
+import utils.transformations as transform
+import utils.score as score
+
 # helper function to display images
-def imshow(raw, segmentation=None, prediction=None, file=None):
-    def norm(arr):
-        """Normalize an array to int8 (0-255)"""
-
-        if arr.max() == 0:
-            return arr
-
-        arr = arr - arr.min()
-        return arr * 255 / arr.max()
-
-    def apply_threshold(arr, threshold):
-        newArr = arr.copy()
-        newArr[newArr < threshold] = 0
-        return newArr
-
+def imshow(data, file=None):
     # Produce one row of plots for each of raw and segmentation, and two
     # plots for prediction: with and without a threshold applied
-    rows = len([x for x in (raw, segmentation, prediction, prediction) if x is not None])
-    cols = raw.shape[0] if raw.ndim > 3 else 1
+    rows = len(data)
+    cols = data['raw'].shape[0] if data['raw'].ndim > 3 else 1
     fig, axes = plt.subplots(rows, cols, figsize=(10, 4), sharex=True, sharey=True, squeeze=False)
 
-    for row, arr in enumerate([raw,
-                               segmentation,
-                               prediction,
-                               apply_threshold(prediction, 0.7)]):
-        if arr is None:
-            continue
+    for row, axis in enumerate(data):
+        arr = np.array(data[axis])
 
         # Ensure all array shapes are in the form (plot, channel, X, Y)
         if arr.ndim == 3:
@@ -38,9 +23,15 @@ def imshow(raw, segmentation=None, prediction=None, file=None):
             if plot.ndim == 3: # has RGB channels
                 plot = plot.transpose(1,2,0) # must be raw array; don't normalize
             else:
-                plot = norm(plot) # must be seg/pred; ensure max = 1, min = 0
+                plot = transform.normalize(plot) # must be seg/pred; ensure max = 1, min = 0
 
             axes[row][i].imshow(plot)
+
+    # Add score labels to the bottom of each column
+    for i in range(cols):
+        nc = score.naive_count(data['seg'][i], data['masked'][i])
+        nd = score.naive_difference(data['seg'][i], data['masked'][i])
+        axes[rows-1][i].set_xlabel(f'{nc}/{nd}')
 
     if file is None:
         plt.show()

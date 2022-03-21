@@ -107,9 +107,10 @@ def train(model, zarrfile):
         for i in range(100):
             batch = pipeline.request_batch(request)
             
-    return {'raw': batch[raw].data, 
-            'seg': batch[seg].data,
-            'prediction': batch[prediction].data}
+    return {'raw':  batch[raw].data,
+            'seg':  batch[seg].data,
+            'pred': batch[prediction].data
+           }
 
 def test(model, zarrfile):
     # ===============================================
@@ -162,6 +163,7 @@ def test(model, zarrfile):
     with gp.build(pipeline):
         batch = pipeline.request_batch(request)
 
-    return {'raw': batch[raw].data,
-            'seg': np.array(zarr.open(zarrfile)[seg])[np.newaxis],
-            'prediction': batch[prediction].data}
+    return {'raw':  batch[raw].data,
+            'seg':  np.array(zarr.open(zarrfile)[seg])[np.newaxis],
+            'pred': batch[prediction].data
+           }
