@@ -26,6 +26,43 @@ def count_xor_difference(arr1, arr2, threshold=0.7):
     return np.count_nonzero(np.logical_xor(arr1 > threshold,
                                            arr2 > threshold))
 
+def get_centroids(arr, pixel_threshold=0.7, size_threshold=2):
+    """Return x,y coordinates of centroids of clusters in image."""
+
+    label, num_label = ndimage.label(arr > pixel_threshold)
+    size = np.bincount(label.ravel())
+
+    centroids = []
+    for i in range(1, len(size)):
+        if size[i] < size_threshold:
+            continue
+        try:
+            x,y = np.array(label == i).nonzero()
+        except ValueError:
+            print('ValueError in get_centroids')
+            import code
+            code.interact(local={**locals(),**globals()})
+
+        centroids.append((x.mean(), y.mean()))
+
+    return np.array(centroids)
+
+def get_centroid_distance_matrix(seg, pred):
+    """Compute a matrix containing the distances between all pairs of centroids
+    in the seg and pred arrays."""
+
+    seg_centroids = get_centroids(seg)
+    pred_centroids = get_centroids(pred)
+
+    dist = np.zeros((len(seg_centroids), len(pred_centroids)))
+    if 0 in dist.shape: # one of seg or pred have zero centroids
+        return None
+
+    for i in range(len(dist)):
+        dist[i] = np.linalg.norm(seg_centroids[i] - pred_centroids, axis=1)
+
+    return dist
+
 # Computes the distances between the centroids of the predicted
 # objects to the centroids of the actual objects
 # Returns a list of distances
@@ -34,45 +71,17 @@ def compute_centroids(seg, pred, pixel_threshold=0.7, size_threshold=1):
     seg_coordinates_dict = {}
     pred_coordinates_dict = {}
     
-    seg_centroid_dict = {}
-    pred_centroid_dict = {}
-    
-    # Predicted Objects
-    pred[pred > pixel_threshold] = 1
-    pred[pred <= pixel_threshold] = 0
-    
-    label, num_label = ndimage.label(pred == 1)
-    size = np.bincount(label.ravel())
-    num_objects = (size > size_threshold).sum()
-    
-    for i in range(1,len(size)):
-        pairs_pred = np.asarray(np.where(label == i)).T
-        pred_coordinates_dict[i] = pairs_pred
-        
-    for key,value in pred_coordinates_dict.items():
-        x2 = [p[0] for p in value]
-        y2 = [p[1] for p in value]
-        centroid_pred = (sum(x2) / len(value), sum(y2) / len(value))
-        pred_centroid_dict[key] = centroid_pred
-        
-    # Seg Objects
-    seg[seg > pixel_threshold] = 1
-    seg[seg <= pixel_threshold] = 0
-    
-    label, num_label = ndimage.label(seg == 1)
-    size = np.bincount(label.ravel())
-    num_objects = (size > size_threshold).sum() 
-        
-    for i in range(1,len(size)):
-        pairs_seg = np.asarray(np.where(label == i)).T
-        seg_coordinates_dict[i] = pairs_seg
-        
-    for key,value in seg_coordinates_dict.items():
-        x2 = [p[0] for p in value]
-        y2 = [p[1] for p in value]
-        centroid_seg = (sum(x2) / len(value), sum(y2) / len(value))
-        seg_centroid_dict[key] = centroid_seg
-    
+    seg_centroid_dict = get_centroids(seg, pixel_threshold, size_threshold)
+    pred_centroid_dict = get_centroids(pred, pixel_threshold, size_threshold)
+
+    s = np.stack([seg_centroid_dict[x] for x in seg_centroid_dict.keys()])
+    p = np.stack([pred_centroid_dict[x] for x in pred_centroid_dict.keys()])
+
+    d = np.zeros((len(s),len(p)))
+    for i in range(len(s)):
+        d[i] = np.linalg.norm(s[i] - p, axis=1)
+    m = np.argmin(d, axis=1)
+
     dists = []
 
     for pkey, pvalue in pred_centroid_dict.items():
@@ -93,10 +102,9 @@ def compute_centroids(seg, pred, pixel_threshold=0.7, size_threshold=1):
 
 def naive_count(seg, pred):
     """Scoring method: Return the difference between the number of expected
-    clusters and the number of predicted clusters. A positive value indicates
-    there were fewer predicted clusters than expected."""
+    clusters and the number of predicted clusters."""
 
-    return count_objects(seg) - count_objects(pred)
+    return abs(count_objects(seg) - count_objects(pred))
 
 def naive_difference(seg, pred):
     """Scoring method: Return the pixel-wise difference between the expected
@@ -104,14 +112,55 @@ def naive_difference(seg, pred):
 
     return count_xor_difference(seg, pred)
 
-def better_count(data):
-    return None
+def better_count(seg, pred, tolerance=1):
+    """Scoring method: Return the number of clusters that do not match between
+    the expected and predicted results."""
+
+    score = 0
+    for s, p in zip(np.squeeze(seg), np.squeeze(pred)):
+        s_centroids = get_centroids(s)
+        p_centroids = get_centroids(p)
+
+        if len(s_centroids) > 0 and len(p_centroids) > 0:
+            for c in s_centroids.copy():
+                match_index = (np.linalg.norm(c - p_centroids, axis=1) < tolerance).nonzero()
+
+                if len(match_index):
+                    # Found a matching centroid between seg and pred, so
+                    # remove it from both arrays so that we don't count it
+                    # twice
+                    p_centroids = np.delete(p_centroids, match_index, axis=0)
+                    s_centroids = s_centroids[s_centroids != c]
+
+        # Remaining centroids do not agree, so score is their sum
+        score += len(s_centroids) + len(p_centroids)
+
+    return score
 
 def better_difference(data):
+    """Scoring method: for each centroid, compute its cluster's pixel-wise
+    difference with the corresponding cluster in the other layer. Clusters
+    that do not match the other layer will have all pixels count towards the
+    error."""
+
+    # Not yet implemented
     return None
 
+def centroid_deviation(seg, pred):
+    """Scoring method: Return the sum of min deviation between the expected
+    centroids and the predicted."""
+
+    score = 0
+    for s, p in zip(np.squeeze(seg), np.squeeze(pred)):
+        dist = get_centroid_distance_matrix(s, p)
+        if dist is not None:
+            score += np.amin(dist, axis=1).sum()
+
+    return score
+
 def score(data):
-    return {'naive_count':       naive_count(data['seg'], data['masked']),
-            'naive_difference':  naive_difference(data['seg'], data['masked']),
-            'better_count':      better_count(data),
-            'better_difference': better_difference(data)}
+    return {'naive_count':        naive_count(data['seg'], data['masked']),
+            'naive_difference':   naive_difference(data['seg'], data['masked']),
+            'better_count':       better_count(data['seg'], data['masked']),
+            'better_difference':  better_difference(data),
+            'centroid_deviation': centroid_deviation(data['seg'], data['masked'])}
