@@ -6,8 +6,8 @@ import torch
 
 import utils.argparse as argparse
 import utils.plot as plot
-import utils.score as score
 import utils.transformations as transform
+from utils.metrics import score
 
 def updateZarr(sample, zarr_root):
     if len(sample) != 5:
@@ -61,7 +61,7 @@ def main():
 
             torch.save(opts.model, opts.model_path)
             torch.save(opts.model.state_dict(), opts.weights_path)
-            scores[opts.data['train'].attrs['name'][i]] = score.score(results)
+            scores[opts.data['train'].attrs['name'][i]] = score(results)
             print(f"{opts.data['train'].attrs['name'][i]}: {scores[opts.data['train'].attrs['name'][i]]}")
 
     if opts.type in ['test','both']:
@@ -71,7 +71,7 @@ def main():
             results = runModel(sample, root,
                 lambda: opts.test(opts.model, sample_zarr),
                 f"test-{opts.data['test'].attrs['name'][i]}")
-            scores[opts.data['test'].attrs['name'][i]] = score.score(results)
+            scores[opts.data['test'].attrs['name'][i]] = score(results)
             print(f"{opts.data['test'].attrs['name'][i]}: {scores[opts.data['test'].attrs['name'][i]]}")
 
     # extract non-None data from scores dictionary

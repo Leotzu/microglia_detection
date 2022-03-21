@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 import utils.transformations as transform
-import utils.score as score
+import utils.metrics as metrics
 
 # helper function to display images
 def imshow(data, file=None):
@@ -29,8 +29,8 @@ def imshow(data, file=None):
 
     # Add score labels to the bottom of each column
     for i in range(cols):
-        nc = score.naive_count(data['seg'][i], data['masked'][i])
-        nd = score.naive_difference(data['seg'][i], data['masked'][i])
+        nc = metrics.naive_count(data['seg'][i], data['masked'][i])
+        nd = metrics.naive_difference(data['seg'][i], data['masked'][i])
         axes[rows-1][i].set_xlabel(f'{nc}/{nd}')
 
     if file is None:
