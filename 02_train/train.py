@@ -21,8 +21,8 @@ def updateZarr(sample, zarr_root):
 def runModel(sample, root, model, filename):
     updateZarr(sample, root)
     results = model()
-    results['masked'] = transform.normalize(transform.apply_pixel_mask(results['pred']))
     results['pred'] = transform.normalize(results['pred'])
+    results['masked'] = transform.apply_pixel_mask(results['pred'])
     plot.imshow(results, file=filename)
 
     return results
@@ -54,26 +54,30 @@ def main():
     if opts.type in ['train','both']:
         # For each image, populate the sample zarr container and train on it
         for i, sample in enumerate(opts.data['train']):
+            sampleName = opts.data['train'].attrs['name'][i]
+
             print(f"Training on sample {i+1} of {len(opts.data['train'])}",
-                    f"({opts.data['train'].attrs['name'][i]})")
+                    f"({sampleName})")
             results = runModel(sample, root,
                 lambda: opts.train(opts.model, sample_zarr),
-                f"train-{opts.data['train'].attrs['name'][i]}")
+                f"train-{sampleName}")
 
             torch.save(opts.model, opts.model_path)
             torch.save(opts.model.state_dict(), opts.weights_path)
-            scores[opts.data['train'].attrs['name'][i]] = score(results)
-            print(f"{opts.data['train'].attrs['name'][i]}: {scores[opts.data['train'].attrs['name'][i]]}")
+            scores[sampleName] = score(results)
+            print(f"{sampleName}: {scores[sampleName]}")
 
     if opts.type in ['test','both']:
         for i, sample in enumerate(opts.data['test']):
+            sampleName = opts.data['test'].attrs['name'][i]
+
             print(f"Testing on sample {i+1} of {len(opts.data['test'])}",
-                    f"({opts.data['train'].attrs['name'][i]})")
+                    f"({sampleName})")
             results = runModel(sample, root,
                 lambda: opts.test(opts.model, sample_zarr),
-                f"test-{opts.data['test'].attrs['name'][i]}")
-            scores[opts.data['test'].attrs['name'][i]] = score(results)
-            print(f"{opts.data['test'].attrs['name'][i]}: {scores[opts.data['test'].attrs['name'][i]]}")
+                f"test-{sampleName}")
+            scores[sampleName] = score(results)
+            print(f"{sampleName}: {scores[sampleName]}")
 
     # extract non-None data from scores dictionary
     scores_arr = np.stack([[x for x in list(y.values()) if x is not None] for y in scores.values()])
