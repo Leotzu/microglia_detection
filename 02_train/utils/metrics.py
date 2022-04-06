@@ -146,8 +146,8 @@ def centroid_deviation(seg, pred):
     centroids and the predicted."""
 
     score = 0
-    for s, p in zip(np.squeeze(seg), np.squeeze(pred)):
-        dist = get_centroid_distance_matrix(s, p)
+    for s, p in zip(seg, pred):
+        dist = get_centroid_distance_matrix(np.squeeze(s), np.squeeze(p))
         if dist is not None:
             score += np.amin(dist, axis=1).sum()
 
