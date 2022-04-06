@@ -11,6 +11,9 @@ def imshow(data, file=None):
     cols = data['raw'].shape[0] if data['raw'].ndim > 3 else 1
     fig, axes = plt.subplots(rows, cols, figsize=(10, 4), sharex=True, sharey=True, squeeze=False)
 
+    if rows > cols: # convert figsize from landscape to portrait
+        fig.set_size_inches(np.flip(fig.get_size_inches()))
+
     for row, axis in enumerate(data):
         arr = np.array(data[axis])
 
