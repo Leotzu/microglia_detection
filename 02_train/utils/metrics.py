@@ -36,13 +36,8 @@ def get_centroids(arr, pixel_threshold=0.7, size_threshold=2):
     for i in range(1, len(size)):
         if size[i] < size_threshold:
             continue
-        try:
-            x,y = np.array(label == i).nonzero()
-        except ValueError:
-            print('ValueError in get_centroids')
-            import code
-            code.interact(local={**locals(),**globals()})
 
+        x,y = np.array(label == i).nonzero()
         centroids.append((x.mean(), y.mean()))
 
     return np.array(centroids)
@@ -117,9 +112,9 @@ def better_count(seg, pred, tolerance=1):
     the expected and predicted results."""
 
     score = 0
-    for s, p in zip(np.squeeze(seg), np.squeeze(pred)):
-        s_centroids = get_centroids(s)
-        p_centroids = get_centroids(p)
+    for s, p in zip(seg, pred):
+        s_centroids = get_centroids(np.squeeze(s))
+        p_centroids = get_centroids(np.squeeze(p))
 
         if len(s_centroids) > 0 and len(p_centroids) > 0:
             for c in s_centroids.copy():
