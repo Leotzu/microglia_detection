@@ -98,5 +98,7 @@ def parse_args():
         help='Optional: specify whether to train or test the model. ' +
             'Possible values: test, train, or both. Default is train. ' +
             'Unless both, only the specified routine will be executed.')
+    parser.add_argument('-d', dest='print_scores_only', action='store_true',
+        help='Optional: suppress normal output, and only output scores to be plotted.')
 
     return parser.parse_args()

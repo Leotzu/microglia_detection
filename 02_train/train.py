@@ -27,8 +27,22 @@ def runModel(sample, root, model, filename):
 
     return results
 
+def logger(suppress=False):
+    """Return a lambda to handle output. If the '-d' command-line option is used,
+    normal output will be suppressed in favour of only outputting scoring results."""
+
+    def doPrint(s, allow=True):
+        if allow:
+            print(''.join(s))
+
+    if suppress:
+        return lambda *s, allow=False : doPrint(s, allow)
+    else:
+        return lambda *s : doPrint(s)
+
 def main():
     opts = argparse.parse_args()
+    log = logger(opts.print_scores_only)
 
     # Model weights were not specified on command line args.
     if opts.weights is None:
@@ -41,7 +55,7 @@ def main():
         opts.model.load_state_dict(opts.weights)
         opts.model.eval() # docs recommend doing this when loading weights
 
-    print(f'Using model {opts.model_path} and weights {opts.weights_path}')
+    log(f'Using model {opts.model_path} and weights {opts.weights_path}')
 
     # Create/load a sample zarr container for training
     sample_zarr = 'sample.zarr'
@@ -50,13 +64,14 @@ def main():
         if lyr not in root:
             root.array(str(lyr),np.array(0)) # create a placeholder
 
-    scores = {} # use a dict to be able to print a summary per sample image
+    #scores = []
+    sample_num = 0
     if opts.type in ['train','both']:
         # For each image, populate the sample zarr container and train on it
         for i, sample in enumerate(opts.data['train']):
             sampleName = opts.data['train'].attrs['name'][i]
 
-            print(f"Training on sample {i+1} of {len(opts.data['train'])}",
+            log(f"Training on sample {i+1} of {len(opts.data['train'])}",
                     f"({sampleName})")
             results = runModel(sample, root,
                 lambda: opts.train(opts.model, sample_zarr),
@@ -64,25 +79,26 @@ def main():
 
             torch.save(opts.model, opts.model_path)
             torch.save(opts.model.state_dict(), opts.weights_path)
-            scores[sampleName] = score(results)
-            print(f"{sampleName}: {scores[sampleName]}")
+
+            # Score results and print
+            sample_score = score(results, sample_num, sampleName)
+            log('\n'.join([str(s) for s in sample_score]), allow=True)
+            sample_num += len(sample_score)
 
     if opts.type in ['test','both']:
         for i, sample in enumerate(opts.data['test']):
             sampleName = opts.data['test'].attrs['name'][i]
 
-            print(f"Testing on sample {i+1} of {len(opts.data['test'])}",
+            log(f"Testing on sample {i+1} of {len(opts.data['test'])}",
                     f"({sampleName})")
             results = runModel(sample, root,
                 lambda: opts.test(opts.model, sample_zarr),
                 f"test-{sampleName}")
-            scores[sampleName] = score(results)
-            print(f"{sampleName}: {scores[sampleName]}")
 
-    # extract non-None data from scores dictionary
-    scores_arr = np.stack([[x for x in list(y.values()) if x is not None] for y in scores.values()])
-    print(f'avg naive count: {scores_arr[:,0].mean()}')
-    print(f'avg naive diff : {scores_arr[:,1].mean()}')
+            # Score results and print
+            sample_score = score(results, sample_num, sampleName)
+            log('\n'.join([str(s) for s in sample_score]), allow=True)
+            sample_num += len(sample_score)
 
 if __name__ == '__main__':
     main()
