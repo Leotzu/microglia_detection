@@ -109,7 +109,7 @@ def naive_difference(seg, pred):
 
     return count_xor_difference(seg, pred)
 
-def better_count(seg, pred, tolerance=1):
+def better_count(seg, pred, tolerance=5):
     """Scoring method: Return the number of clusters that do not match between
     the expected and predicted results."""
 
@@ -120,14 +120,14 @@ def better_count(seg, pred, tolerance=1):
 
         if len(s_centroids) > 0 and len(p_centroids) > 0:
             for c in s_centroids.copy():
-                match_index = (np.linalg.norm(c - p_centroids, axis=1) < tolerance).nonzero()
+                match = np.linalg.norm(c - p_centroids, axis=1) < tolerance
 
-                if len(match_index):
+                if match.any():
                     # Found a matching centroid between seg and pred, so
                     # remove it from both arrays so that we don't count it
                     # twice
-                    p_centroids = np.delete(p_centroids, match_index, axis=0)
-                    s_centroids = s_centroids[s_centroids != c]
+                    p_centroids = p_centroids[np.logical_not(match)]
+                    s_centroids = s_centroids[np.all(s_centroids != c, axis=1)]
 
         # Remaining centroids do not agree, so score is their sum
         score += len(s_centroids) + len(p_centroids)
