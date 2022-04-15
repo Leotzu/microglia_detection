@@ -9,9 +9,11 @@ def count_objects(data, pixel_threshold=0.7, size_threshold=1):
     data[data > pixel_threshold] = 1
     data[data <= pixel_threshold] = 0
     
-    label, num_label = ndimage.label(data == 1)
+    label, _ = ndimage.label(data == 1)
     size = np.bincount(label.ravel())
-    num_objects = (size > size_threshold).sum()
+
+    # ignore the 0'th position, which will be the unactivated pixels
+    num_objects = (size[1:] > size_threshold).sum()
     
     return num_objects
 
