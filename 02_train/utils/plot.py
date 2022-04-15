@@ -10,7 +10,7 @@ def imshow(data, file=None):
     rows = len(data)
     cols = data['raw'].shape[0] if data['raw'].ndim > 3 else 1
     fig, axes = plt.subplots(rows, cols, figsize=(10, 4), sharex=True, sharey=True, squeeze=False)
-
+    
     if rows > cols: # convert figsize from landscape to portrait
         fig.set_size_inches(np.flip(fig.get_size_inches()))
 
@@ -21,11 +21,13 @@ def imshow(data, file=None):
         if arr.ndim == 3:
             arr = arr[np.newaxis]
 
+        __import__('code').interact(local={k: v for ns in (globals(), locals()) for k, v in ns.items()})
         for i, plot in enumerate(arr):
             if plot.ndim == 3: # has RGB channels
                 plot = plot.transpose(1,2,0) # must be raw array; don't normalize
-
-            axes[row][i].imshow(plot)
+            print("image making of {}".format(file))
+            # interpolation='none' removes anti aliasing
+            axes[row][i].imshow(plot, interpolation='none')
 
     # Add score labels to the bottom of each column
     for i in range(cols):
