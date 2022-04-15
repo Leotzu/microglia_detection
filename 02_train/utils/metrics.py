@@ -101,19 +101,19 @@ def naive_count(seg, pred):
     """Scoring method: Return the difference between the number of expected
     clusters and the number of predicted clusters."""
 
-    return abs(count_objects(seg) - count_objects(pred))
+    return [abs(count_objects(s) - count_objects(p)) for s, p in zip(seg, pred)]
 
 def naive_difference(seg, pred):
     """Scoring method: Return the pixel-wise difference between the expected
     image and the predicted image."""
 
-    return count_xor_difference(seg, pred)
+    return [count_xor_difference(s, p) for s, p in zip(seg, pred)]
 
 def better_count(seg, pred, tolerance=5):
     """Scoring method: Return the number of clusters that do not match between
     the expected and predicted results."""
 
-    score = 0
+    scores = []
     for s, p in zip(seg, pred):
         s_centroids = get_centroids(np.squeeze(s))
         p_centroids = get_centroids(np.squeeze(p))
@@ -130,9 +130,9 @@ def better_count(seg, pred, tolerance=5):
                     s_centroids = s_centroids[np.all(s_centroids != c, axis=1)]
 
         # Remaining centroids do not agree, so score is their sum
-        score += len(s_centroids) + len(p_centroids)
+        scores.append(len(s_centroids) + len(p_centroids))
 
-    return score
+    return scores
 
 def better_difference(data):
     """Scoring method: for each centroid, compute its cluster's pixel-wise
@@ -147,17 +147,22 @@ def centroid_deviation(seg, pred):
     """Scoring method: Return the sum of min deviation between the expected
     centroids and the predicted."""
 
-    score = 0
+    scores = []
     for s, p in zip(seg, pred):
         dist = get_centroid_distance_matrix(np.squeeze(s), np.squeeze(p))
         if dist is not None:
-            score += np.amin(dist, axis=1).sum()
+            scores.append(np.amin(dist, axis=1).sum())
 
-    return score
+    return scores
 
-def score(data):
-    return {'naive_count':        naive_count(data['seg'], data['masked']),
+def score(data, start_num=0, image=None):
+    scores={'naive_count':        naive_count(data['seg'], data['masked']),
             'naive_difference':   naive_difference(data['seg'], data['masked']),
             'better_count':       better_count(data['seg'], data['masked']),
-            'better_difference':  better_difference(data),
-            'centroid_deviation': centroid_deviation(data['seg'], data['masked'])}
+            #'better_difference':  better_difference(data),
+            #'centroid_deviation': centroid_deviation(data['seg'], data['masked'])
+        }
+
+    return [{'sample_num': start_num + i, 'image': image, 'scores': dict(scores)}
+            for i, scores in enumerate([zip(scores.keys(), metric)
+                for metric in zip(*scores.values())])]
