@@ -21,11 +21,9 @@ def imshow(data, file=None):
         if arr.ndim == 3:
             arr = arr[np.newaxis]
 
-        __import__('code').interact(local={k: v for ns in (globals(), locals()) for k, v in ns.items()})
         for i, plot in enumerate(arr):
             if plot.ndim == 3: # has RGB channels
                 plot = plot.transpose(1,2,0) # must be raw array; don't normalize
-            print("image making of {}".format(file))
             # interpolation='none' removes anti aliasing
             axes[row][i].imshow(plot, interpolation='none')
 
