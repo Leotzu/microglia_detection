@@ -29,9 +29,12 @@ def imshow(data, file=None):
 
     # Add score labels to the bottom of each column
     for i in range(cols):
-        nc = metrics.naive_count(data['seg'][i], data['masked'][i])
-        nd = metrics.naive_difference(data['seg'][i], data['masked'][i])
-        axes[rows-1][i].set_xlabel(f'{nc}/{nd}')
+        nc = metrics.naive_count(data['seg'][i], data['masked'][i])[0]
+        bc = metrics.better_count(data['seg'][i], data['masked'][i])[0]
+        nd = metrics.naive_difference(data['seg'][i], data['masked'][i])[0] / data['masked'][i].size * 100
+        axes[rows-1][i].set_xlabel(f'nc:{nc}\nbc:{bc}\nnd:{nd:.2f}')
+
+    fig.set_tight_layout(True)
 
     if file is None:
         plt.show()
