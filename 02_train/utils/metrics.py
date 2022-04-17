@@ -157,12 +157,12 @@ def centroid_deviation(seg, pred):
 
 def score(data, start_num=0, image=None):
     scores={'naive_count':        naive_count(data['seg'], data['masked']),
-            'naive_difference':   naive_difference(data['seg'], data['masked']),
             'better_count':       better_count(data['seg'], data['masked']),
+            'naive_difference':   naive_difference(data['seg'], data['masked']),
             #'better_difference':  better_difference(data),
             #'centroid_deviation': centroid_deviation(data['seg'], data['masked'])
         }
 
-    return [{'sample_num': start_num + i, 'image': image, 'scores': dict(scores)}
+    return [{'sample_num': start_num + i, 'image': image, **dict(scores)}
             for i, scores in enumerate([zip(scores.keys(), metric)
                 for metric in zip(*scores.values())])]
