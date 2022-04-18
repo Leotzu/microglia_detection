@@ -101,13 +101,14 @@ def naive_count(seg, pred):
     """Scoring method: Return the difference between the number of expected
     clusters and the number of predicted clusters."""
 
-    return [abs(count_objects(s) - count_objects(p)) for s, p in zip(seg, pred)]
+    return [abs(s-p)/max(s,1) for s, p in
+        [(count_objects(s), count_objects(p)) for s, p in zip(seg, pred)]]
 
 def naive_difference(seg, pred):
     """Scoring method: Return the pixel-wise difference between the expected
     image and the predicted image."""
 
-    return [count_xor_difference(s, p) for s, p in zip(seg, pred)]
+    return [count_xor_difference(s, p)/s.size*100 for s, p in zip(seg, pred)]
 
 def better_count(seg, pred, tolerance=5):
     """Scoring method: Return the number of clusters that do not match between
@@ -117,6 +118,7 @@ def better_count(seg, pred, tolerance=5):
     for s, p in zip(seg, pred):
         s_centroids = get_centroids(np.squeeze(s))
         p_centroids = get_centroids(np.squeeze(p))
+        num_seg_centroids = len(s_centroids)
 
         if len(s_centroids) > 0 and len(p_centroids) > 0:
             for c in s_centroids.copy():
@@ -130,7 +132,7 @@ def better_count(seg, pred, tolerance=5):
                     s_centroids = s_centroids[np.all(s_centroids != c, axis=1)]
 
         # Remaining centroids do not agree, so score is their sum
-        scores.append(len(s_centroids) + len(p_centroids))
+        scores.append((len(s_centroids) + len(p_centroids)) / max(num_seg_centroids, 1))
 
     return scores
 
@@ -156,7 +158,11 @@ def centroid_deviation(seg, pred):
     return scores
 
 def score(data, start_num=0, image=None):
-    scores={'naive_count':        naive_count(data['seg'], data['masked']),
+    seg_clusters = [len(get_centroids(np.squeeze(s))) for s in data['seg']]
+    pred_clusters = [len(get_centroids(np.squeeze(p))) for p in data['masked']]
+    scores={'seg_clusters':       seg_clusters,
+            'pred_clusters':      pred_clusters,
+            'naive_count':        naive_count(data['seg'], data['masked']),
             'better_count':       better_count(data['seg'], data['masked']),
             'naive_difference':   naive_difference(data['seg'], data['masked']),
             #'better_difference':  better_difference(data),
