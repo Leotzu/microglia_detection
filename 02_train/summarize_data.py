@@ -22,7 +22,7 @@ def plotSummaryData(data):
     x = np.unique(data[:,0]).astype(np.int16)
     training_y = data[data[:,1] == 'training'][:,2:].astype(np.float32)
     test_y = data[data[:,1] == 'test'][:,2:].astype(np.float32)
-    labels = ['naive count', 'better count', 'naive difference']
+    labels = ['naive count', 'count difference', 'pixel difference']
 
     fig, ax = plt.subplots()
     ax.plot(x, training_y[:,1], 'o-b', label=f'train: {labels[1]}')
