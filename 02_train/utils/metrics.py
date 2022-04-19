@@ -5,10 +5,6 @@ import numpy as np
 # pixel threshold is pixel intensity to consider as an object
 # size threshold is the size of object to consider an object (ie 1 pixel might be too small to consider)
 def count_objects(data, pixel_threshold=0.7, size_threshold=1):
-    
-    data[data > pixel_threshold] = 1
-    data[data <= pixel_threshold] = 0
-    
     label, _ = ndimage.label(data == 1)
     size = np.bincount(label.ravel())
 
