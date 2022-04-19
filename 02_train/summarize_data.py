@@ -65,7 +65,7 @@ def summaryTable():
             nd = scores[:,2].mean()
 
             output.append((epoch, dataset, nc, bc, nd))
-            table.append(f' {epoch:^4s} | {dataset:^8s} | {nc:11.0f} | {bc:12.0f} | {nd:16.2f}')
+            table.append(f' {epoch:^4s} | {dataset:^8s} | {nc:11.2f} | {bc:12.2f} | {nd:16.2f}')
         else:
             print(f'file not found: {filename}')
 
