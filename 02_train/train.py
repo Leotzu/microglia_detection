@@ -38,7 +38,7 @@ def logger(suppress=False):
     if suppress:
         return lambda *s, allow=False : doPrint(s, allow)
     else:
-        return lambda *s : doPrint(s)
+        return lambda *s, allow=True : doPrint(s) # allow is ignored
 
 def main():
     opts = argparse.parse_args()
